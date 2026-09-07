@@ -22,9 +22,11 @@ phạm vi ví single-key này.
 1. `keys.py` kiểm tra WIF, suy ra public key và năm dạng địa chỉ.
 2. `network.py` gọi Esplora Testnet để lấy toàn bộ UTXO của từng địa chỉ.
 3. `select_utxos()` sắp xếp UTXO giảm dần để đạt số input tối thiểu.
-4. `build_signed_transaction()` tạo input, output nhận và change P2WPKH.
-5. Mỗi input tạo sighash phù hợp: legacy, BIP143 hoặc BIP341.
-6. Legacy/SegWit v0 dùng ECDSA DER low-S; Taproot dùng Schnorr BIP340.
+4. `build_unsigned_transaction()` tạo input, output nhận và change P2WPKH;
+   tại thời điểm này toàn bộ `scriptSig` và witness vẫn trống.
+5. `sign_transaction()` tạo sighash riêng cho từng input: legacy, BIP143 hoặc BIP341.
+6. Hàm ký sau đó gắn ECDSA DER low-S hoặc Schnorr BIP340 vào đúng
+   `scriptSig`/witness; `build_signed_transaction()` chỉ là hàm bao hai bước này.
 7. Transaction được serialize, bao gồm `scriptSig` và witness tương ứng.
 8. `network.broadcast_tx()` gửi raw transaction hex lên Bitcoin Testnet.
 

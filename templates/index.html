@@ -666,9 +666,9 @@
       <div class="flow-step" data-step="1"><div class="num">1</div><h3>Suy ra địa chỉ</h3><p>Từ private key, sinh 5 dạng địa chỉ single-key: Legacy, SegWit và Taproot</p></div>
       <div class="flow-step" data-step="2"><div class="num">2</div><h3>Lấy UTXO</h3><p>Truy vấn mạng để biết địa chỉ đang có những "món tiền" (UTXO) nào chưa tiêu</p></div>
       <div class="flow-step" data-step="3"><div class="num">3</div><h3>Chọn UTXO</h3><p>Gom vừa đủ UTXO để đủ tiền gửi + phí, càng ít UTXO càng đỡ tốn phí</p></div>
-      <div class="flow-step" data-step="4"><div class="num">4</div><h3>Tạo giao dịch chưa ký</h3><p>Ghép input (UTXO đã chọn) và output (người nhận + tiền thừa) thành giao dịch chưa ký</p></div>
-      <div class="flow-step" data-step="5"><div class="num">5</div><h3>Hash &amp; ký</h3><p>Băm giao dịch, ký ECDSA DER low-S hoặc Schnorr BIP340 tùy loại input</p></div>
-      <div class="flow-step" data-step="6"><div class="num">6</div><h3>Tạo giao dịch đã ký</h3><p>Gắn chữ ký vào từng input — mỗi loại địa chỉ ghép chữ ký theo cách khác nhau</p></div>
+      <div class="flow-step" data-step="4"><div class="num">4</div><h3>Tạo giao dịch chưa ký</h3><p>Ghép input và output; lúc này toàn bộ scriptSig và witness vẫn để trống</p></div>
+      <div class="flow-step" data-step="5"><div class="num">5</div><h3>Tạo hash và ký</h3><p>Tính sighash riêng cho từng input rồi ký bằng ECDSA hoặc Schnorr</p></div>
+      <div class="flow-step" data-step="6"><div class="num">6</div><h3>Tạo giao dịch đã ký</h3><p>Gắn chữ ký vào đúng scriptSig hoặc witness theo loại địa chỉ</p></div>
       <div class="flow-step" data-step="7"><div class="num">7</div><h3>Ghép hoàn chỉnh</h3><p>Gộp tất cả input đã ký thành 1 giao dịch đầy đủ, sẵn sàng gửi đi</p></div>
       <div class="flow-step" data-step="8"><div class="num">8</div><h3>Broadcast</h3><p>Gửi giao dịch lên mạng Bitcoin, các node xác thực và đưa vào block</p></div>
     </div>

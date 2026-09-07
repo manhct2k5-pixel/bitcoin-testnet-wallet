@@ -111,9 +111,9 @@ def _input_for_utxo(utxo: dict, pubkey_hash: bytes, uncompressed_hash: bytes,
     raise ValueError(f"Unsupported UTXO address type: {kind}")
 
 
-def build_signed_transaction(privkey_int: int, to_address: str, amount_sat: int,
-                             fee_sat: int, chosen_utxos: list):
-    """Build and sign a transaction without performing a network broadcast."""
+def build_unsigned_transaction(privkey_int: int, to_address: str, amount_sat: int,
+                               fee_sat: int, chosen_utxos: list):
+    """Build inputs and outputs while leaving every scriptSig/witness empty."""
     validate_payment(amount_sat, fee_sat)
     destination_script = address_to_scriptpubkey(to_address)
     minimum_output = dust_threshold(destination_script)
@@ -142,32 +142,70 @@ def build_signed_transaction(privkey_int: int, to_address: str, amount_sat: int,
         tx_outputs.append(TxOutput(change_sat, p2wpkh_script_pubkey(pubkey_hash)))
 
     tx = Transaction(tx_inputs, tx_outputs)
-    script_code_segwit = p2pkh_script_pubkey(pubkey_hash)
-    tweaked_taproot_secret = taproot_tweak_seckey(privkey_int)
-    for index, (txin, utxo) in enumerate(zip(tx_inputs, chosen_utxos)):
-        kind = utxo["address_type"]
-        if kind in ("P2PKH (legacy)", "P2PKH (legacy, uncompressed)"):
-            message_hash = tx.legacy_sighash(index, txin.script_pubkey)
-            public_key = pubkey_uncompressed if "uncompressed" in kind else pubkey_compressed
-            txin.script_sig = build_p2pkh_script_sig(sign(privkey_int, message_hash), public_key)
-        elif kind in ("P2WPKH (native segwit)", "P2SH-P2WPKH (segwit wrapped)"):
-            message_hash = tx.segwit_sighash(index, script_code_segwit)
-            txin.witness = [sign(privkey_int, message_hash) + b"\x01", pubkey_compressed]
-            if kind == "P2SH-P2WPKH (segwit wrapped)":
-                txin.script_sig = push_data(txin.redeem_script)
-        elif kind == "P2TR (taproot key-path)":
-            txin.witness = [schnorr_sign(tweaked_taproot_secret, tx.taproot_sighash(index))]
-        else:
-            raise ValueError(f"Unsupported UTXO address type: {kind}")
-
     effective_fee = total_in - sum(output.value_sat for output in tx.outputs)
     return tx, {
         "total_in_sat": total_in,
         "change_sat": change_sat,
         "requested_fee_sat": fee_sat,
         "effective_fee_sat": effective_fee,
-        "vsize": tx.vsize(),
     }
+
+
+def sign_transaction(privkey_int: int, tx: Transaction, chosen_utxos: list,
+                     log=None) -> Transaction:
+    """Create each input sighash and attach its address-specific signature."""
+    if not isinstance(tx, Transaction):
+        raise ValueError("A Transaction instance is required")
+    if len(tx.inputs) != len(chosen_utxos):
+        raise ValueError("UTXO count does not match transaction input count")
+
+    pub_point = privkey_to_pubkey(privkey_int)
+    pubkey_compressed = pubkey_point_to_bytes(pub_point, compressed=True)
+    pubkey_uncompressed = pubkey_point_to_bytes(pub_point, compressed=False)
+    pubkey_hash = hash160(pubkey_compressed)
+    script_code_segwit = p2pkh_script_pubkey(pubkey_hash)
+    tweaked_taproot_secret = taproot_tweak_seckey(privkey_int)
+    for index, (txin, utxo) in enumerate(zip(tx.inputs, chosen_utxos)):
+        kind = utxo["address_type"]
+        if kind in ("P2PKH (legacy)", "P2PKH (legacy, uncompressed)"):
+            message_hash = tx.legacy_sighash(index, txin.script_pubkey)
+            if log:
+                log(f"Step 5 - Input {index}: Legacy sighash = {message_hash.hex()}")
+            public_key = pubkey_uncompressed if "uncompressed" in kind else pubkey_compressed
+            txin.script_sig = build_p2pkh_script_sig(sign(privkey_int, message_hash), public_key)
+            if log:
+                log(f"Step 6 - Input {index}: attached ECDSA DER low-S signature to scriptSig")
+        elif kind in ("P2WPKH (native segwit)", "P2SH-P2WPKH (segwit wrapped)"):
+            message_hash = tx.segwit_sighash(index, script_code_segwit)
+            if log:
+                log(f"Step 5 - Input {index}: BIP143 sighash = {message_hash.hex()}")
+            txin.witness = [sign(privkey_int, message_hash) + b"\x01", pubkey_compressed]
+            if kind == "P2SH-P2WPKH (segwit wrapped)":
+                txin.script_sig = push_data(txin.redeem_script)
+            if log:
+                location = "redeemScript + witness" if "P2SH" in kind else "witness"
+                log(f"Step 6 - Input {index}: attached ECDSA DER low-S signature to {location}")
+        elif kind == "P2TR (taproot key-path)":
+            message_hash = tx.taproot_sighash(index)
+            if log:
+                log(f"Step 5 - Input {index}: BIP341 sighash = {message_hash.hex()}")
+            txin.witness = [schnorr_sign(tweaked_taproot_secret, message_hash)]
+            if log:
+                log(f"Step 6 - Input {index}: attached BIP340 Schnorr signature to witness")
+        else:
+            raise ValueError(f"Unsupported UTXO address type: {kind}")
+    return tx
+
+
+def build_signed_transaction(privkey_int: int, to_address: str, amount_sat: int,
+                             fee_sat: int, chosen_utxos: list):
+    """Compatibility wrapper: build unsigned first, then sign in a separate step."""
+    tx, details = build_unsigned_transaction(
+        privkey_int, to_address, amount_sat, fee_sat, chosen_utxos
+    )
+    sign_transaction(privkey_int, tx, chosen_utxos)
+    details["vsize"] = tx.vsize()
+    return tx, details
 
 
 def send_from_all_addresses(wif_privkey: str, to_address: str, amount_sat: int,
@@ -195,14 +233,20 @@ def send_from_all_addresses(wif_privkey: str, to_address: str, amount_sat: int,
     chosen, total_in = select_utxos(all_utxos, amount_sat, fee_sat)
     log(f"Step 3 - Selected {len(chosen)} UTXO(s), total_in={total_in} sat "
         f"(need {amount_sat + fee_sat} sat)")
-    tx, details = build_signed_transaction(privkey_int, to_address, amount_sat, fee_sat, chosen)
-    log(f"Step 4 - Constructed unsigned transaction with {len(tx.inputs)} input(s) and {len(tx.outputs)} output(s)")
-    log(f"Step 5/6 - Hashed and signed all {len(tx.inputs)} input(s) with their address-specific algorithm")
+    tx, details = build_unsigned_transaction(
+        privkey_int, to_address, amount_sat, fee_sat, chosen
+    )
+    log(f"Step 4 - Constructed unsigned transaction with {len(tx.inputs)} input(s) "
+        f"and {len(tx.outputs)} output(s); all scriptSig/witness fields are empty")
+    log(f"  unsigned_tx_hex = {tx.serialize_without_witness().hex()}")
     if details["change_sat"]:
         log(f"  Change output: {details['change_sat']} sat to native SegWit")
     elif details["effective_fee_sat"] > fee_sat:
         log(f"  Remaining {details['effective_fee_sat'] - fee_sat} sat is below the "
             f"{P2WPKH_CHANGE_DUST} sat change dust threshold and was added to the fee")
+
+    sign_transaction(privkey_int, tx, chosen, log=log)
+    details["vsize"] = tx.vsize()
 
     raw_hex = tx.serialize().hex()
     log(f"Step 7 - Serialized signed transaction: {len(raw_hex) // 2} bytes, "

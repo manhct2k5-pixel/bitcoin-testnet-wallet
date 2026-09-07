@@ -7,8 +7,8 @@ from keys import (
     taproot_output_key, taproot_tweak_seckey, wif_to_privkey,
 )
 from main import (
-    address_to_scriptpubkey, build_signed_transaction,
-    select_utxos, send_from_all_addresses,
+    address_to_scriptpubkey, build_signed_transaction, build_unsigned_transaction,
+    select_utxos, send_from_all_addresses, sign_transaction,
 )
 from secp256k1 import N, privkey_to_pubkey
 from signer import schnorr_sign, schnorr_verify, sign, verify
@@ -219,6 +219,27 @@ class TransactionFlowTests(unittest.TestCase):
         ))
         self.assertEqual(tx.serialize()[4:6], b"\x00\x01")
 
+    def test_unsigned_transaction_exists_before_signing(self):
+        kinds = list(derive_addresses(self.secret)["addresses"])
+        utxos = [
+            {"txid": f"{index + 10:02x}" * 32, "vout": index, "value": 10_000,
+             "address_type": kind}
+            for index, kind in enumerate(kinds)
+        ]
+        tx, details = build_unsigned_transaction(
+            self.secret, self.destination, 40_000, 500, utxos
+        )
+
+        self.assertEqual(details["change_sat"], 9_500)
+        self.assertTrue(all(txin.script_sig == b"" for txin in tx.inputs))
+        self.assertTrue(all(txin.witness == [] for txin in tx.inputs))
+        unsigned_hex = tx.serialize_without_witness().hex()
+
+        sign_transaction(self.secret, tx, utxos)
+        self.assertNotEqual(tx.serialize_without_witness().hex(), unsigned_hex)
+        self.assertTrue(any(txin.script_sig for txin in tx.inputs))
+        self.assertTrue(any(txin.witness for txin in tx.inputs))
+
     def test_dust_change_becomes_explicit_effective_fee(self):
         utxo = {"txid": "11" * 32, "vout": 0, "value": 10_700,
                 "address_type": "P2WPKH (native segwit)"}
@@ -230,7 +251,7 @@ class TransactionFlowTests(unittest.TestCase):
     def test_full_flow_scans_every_address_and_broadcasts_raw_hex(self):
         own = derive_addresses(self.secret)["addresses"]
         funded_address = own["P2TR (taproot key-path)"]
-        queried, broadcast = [], []
+        queried, broadcast, logs = [], [], []
 
         def fake_utxos(address):
             queried.append(address)
@@ -241,12 +262,21 @@ class TransactionFlowTests(unittest.TestCase):
         with patch("network.get_utxos", side_effect=fake_utxos), \
              patch("network.broadcast_tx", side_effect=lambda raw: broadcast.append(raw) or "mock-txid"):
             txid, raw_hex = send_from_all_addresses(
-                privkey_to_wif(self.secret), self.destination, 10_000, 500, log=lambda _: None
+                privkey_to_wif(self.secret), self.destination, 10_000, 500, log=logs.append
             )
         self.assertEqual(set(queried), set(own.values()))
         self.assertEqual(txid, "mock-txid")
         self.assertEqual(broadcast, [raw_hex])
         self.assertTrue(bytes.fromhex(raw_hex))
+        step4 = next(i for i, line in enumerate(logs) if line.startswith("Step 4"))
+        step5 = next(i for i, line in enumerate(logs) if line.startswith("Step 5"))
+        step6 = next(i for i, line in enumerate(logs) if line.startswith("Step 6"))
+        step7 = next(i for i, line in enumerate(logs) if line.startswith("Step 7"))
+        self.assertLess(step4, step5)
+        self.assertLess(step5, step6)
+        self.assertLess(step6, step7)
+        self.assertIn("scriptSig/witness fields are empty", logs[step4])
+        self.assertTrue(any(line.strip().startswith("unsigned_tx_hex") for line in logs))
 
 
 if __name__ == "__main__":
