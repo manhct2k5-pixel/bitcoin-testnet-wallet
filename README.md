@@ -4,6 +4,9 @@
 hình UTXO. Chương trình khóa địa chỉ và WIF ở **Bitcoin Testnet/Signet** để hạn
 chế việc vô tình sử dụng tiền thật. API mặc định hiện kết nối Bitcoin Testnet.
 
+Đọc [Hướng dẫn quy trình đầy đủ](HUONG_DAN_QUY_TRINH.md) để hiểu cách sử dụng
+giao diện, ý nghĩa UTXO và từng bước tạo, ký, serialize, broadcast giao dịch.
+
 Các loại địa chỉ single-key được hỗ trợ đầy đủ ở cả bước tìm UTXO và ký input:
 
 - P2PKH Legacy với public key compressed;
