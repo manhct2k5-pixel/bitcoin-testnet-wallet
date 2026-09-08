@@ -33,6 +33,8 @@ phạm vi ví single-key này.
 Giao diện có sơ đồ **UTXO trước và sau giao dịch**: UTXO được chọn được đánh dấu
 đã tiêu, các UTXO không được chọn được giữ nguyên, và hai output mới (người nhận
 và change) được hiển thị cùng phép tính `total input = amount + change + fee`.
+Nút **Gửi về ví này để tạo thêm UTXO** tự điền địa chỉ P2WPKH của người gửi;
+giao diện nhận biết output người nhận cũng thuộc cùng ví và tính đúng số dư sau giao dịch.
 
 Nếu phần dư nhỏ hơn ngưỡng dust 294 sat của change P2WPKH, chương trình không
 tạo change output và ghi rõ phần đó được cộng vào phí thực tế.

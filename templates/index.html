@@ -709,6 +709,11 @@
     color:#B6C3D2; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
   }
   .utxo-equation strong{ color:var(--accent); }
+  .self-send-row{ display:flex; justify-content:flex-end; margin-top:8px; }
+  .btn-self-send{
+    min-height:30px; padding:5px 9px; border:1px solid rgba(91,156,255,.28);
+    background:rgba(91,156,255,.07); color:#91BFFF; font-size:10.5px;
+  }
   @media (max-width:820px){
     .utxo-flow-grid{ grid-template-columns:1fr; }
     .tx-bridge{ min-height:130px; }
@@ -818,6 +823,9 @@
 
       <label>Địa chỉ nhận (m/n, 2, tb1q hoặc tb1p)</label>
       <input id="send-to" class="mono" autocomplete="off" placeholder="Địa chỉ Bitcoin Testnet3">
+      <div class="self-send-row">
+        <button type="button" class="btn-self-send" id="btn-self-send">↻ Gửi về ví này để tạo thêm UTXO</button>
+      </div>
 
       <label>
         <span>Số tiền gửi</span>
@@ -1023,21 +1031,29 @@ function renderUtxoFlow(flow){
 
   const after = $('utxo-after-list');
   after.innerHTML = '';
+  const ownAddresses = new Set([
+    ...currentUtxos.map(item => item.address),
+    ...Object.values(currentWallet?.addresses || {})
+  ]);
   (flow.unselected_utxos || []).forEach(item => {
     after.appendChild(createUtxoChip(item, 'kept', 'UTXO GIỮ NGUYÊN'));
   });
   (flow.outputs || []).forEach(output => {
     const item = {...output, txid: flow.txid};
     const isChange = output.role === 'change';
+    const isSelfSend = output.role === 'recipient' && ownAddresses.has(output.address);
     after.appendChild(createUtxoChip(
       item,
       isChange ? 'change' : 'recipient',
-      isChange ? 'CHANGE → VÍ GỬI' : 'UTXO MỚI → NGƯỜI NHẬN'
+      isChange ? 'CHANGE → VÍ GỬI' : (isSelfSend ? 'UTXO MỚI → CÙNG VÍ' : 'UTXO MỚI → NGƯỜI NHẬN')
     ));
   });
 
   const unselectedTotal = (flow.unselected_utxos || []).reduce((sum, item) => sum + Number(item.value), 0);
-  $('utxo-after-total').textContent = formatSat(unselectedTotal + Number(flow.change_sat));
+  const ownedOutputTotal = (flow.outputs || [])
+    .filter(output => output.role === 'change' || ownAddresses.has(output.address))
+    .reduce((sum, output) => sum + Number(output.value), 0);
+  $('utxo-after-total').textContent = formatSat(unselectedTotal + ownedOutputTotal);
   $('utxo-equation').innerHTML = `<strong>${formatSat(flow.total_in_sat)}</strong> = ${formatSat(flow.amount_sat)} gửi + ${formatSat(flow.change_sat)} change + ${formatSat(flow.effective_fee_sat)} phí`;
   $('utxo-section').scrollIntoView?.({behavior:'smooth', block:'start'});
 }
@@ -1064,6 +1080,18 @@ $('btn-copy-wif').addEventListener('click', () => {
 });
 $('btn-copy-txid').addEventListener('click', () => {
   if ($('result-txid').textContent) copyText($('result-txid').textContent, $('btn-copy-txid'));
+});
+
+$('btn-self-send').addEventListener('click', () => {
+  const status = $('send-status');
+  if (!currentWallet){
+    status.textContent = 'Hãy tạo hoặc nhập ví trước để lấy địa chỉ P2WPKH.';
+    status.className = 'status err';
+    return;
+  }
+  $('send-to').value = currentWallet.addresses['P2WPKH (native segwit)'];
+  status.textContent = 'Đã chọn địa chỉ của chính ví. Giao dịch này sẽ tạo thêm UTXO sau khi trừ phí.';
+  status.className = 'status ok';
 });
 
 /* ---------- flow explainer toggle ---------- */
