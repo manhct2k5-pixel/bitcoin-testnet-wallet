@@ -49,10 +49,24 @@ def balance():
     address = data.get("address", "").strip()
     try:
         address_to_scriptpubkey(address)
-        utxos = network.get_utxos(address)
-        total_sat = sum(u["value"] for u in utxos)
-        return jsonify({"address": address, "utxo_count": len(utxos),
-                         "total_sat": total_sat, "utxos": utxos})
+        utxos = []
+        for response_utxo in network.get_utxos(address):
+            item = dict(response_utxo)
+            item["explorer_url"] = f"https://mempool.space/testnet/tx/{item['txid']}"
+            utxos.append(item)
+        confirmed = [item for item in utxos if item.get("status", {}).get("confirmed")]
+        pending = [item for item in utxos if not item.get("status", {}).get("confirmed")]
+        total_sat = sum(item["value"] for item in utxos)
+        return jsonify({
+            "address": address,
+            "total_sat": total_sat,
+            "confirmed_sat": sum(item["value"] for item in confirmed),
+            "pending_sat": sum(item["value"] for item in pending),
+            "utxo_count": len(utxos),
+            "confirmed_utxo_count": len(confirmed),
+            "pending_utxo_count": len(pending),
+            "utxos": utxos,
+        })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
@@ -70,23 +84,56 @@ def balance_all():
         all_utxos = []
         total_sat = 0
         total_utxos = 0
+        confirmed_sat = 0
+        pending_sat = 0
+        confirmed_utxos = 0
+        pending_utxos = 0
         for kind, address in derive_addresses(private_key)["addresses"].items():
             utxos = network.get_utxos(address)
             for utxo in utxos:
                 item = dict(utxo)
-                item.update(address_type=kind, address=address)
+                item.update(
+                    address_type=kind,
+                    address=address,
+                    explorer_url=f"https://mempool.space/testnet/tx/{item['txid']}",
+                )
                 all_utxos.append(item)
             address_total = sum(utxo["value"] for utxo in utxos)
+            address_confirmed = sum(
+                utxo["value"] for utxo in utxos
+                if utxo.get("status", {}).get("confirmed")
+            )
+            address_pending = address_total - address_confirmed
+            address_confirmed_count = sum(
+                1 for utxo in utxos if utxo.get("status", {}).get("confirmed")
+            )
+            address_pending_count = len(utxos) - address_confirmed_count
             balances.append({
                 "address_type": kind,
                 "address": address,
                 "total_sat": address_total,
                 "utxo_count": len(utxos),
+                "confirmed_sat": address_confirmed,
+                "pending_sat": address_pending,
+                "confirmed_utxo_count": address_confirmed_count,
+                "pending_utxo_count": address_pending_count,
             })
             total_sat += address_total
             total_utxos += len(utxos)
-        return jsonify({"total_sat": total_sat, "utxo_count": total_utxos,
-                        "balances": balances, "utxos": all_utxos})
+            confirmed_sat += address_confirmed
+            pending_sat += address_pending
+            confirmed_utxos += address_confirmed_count
+            pending_utxos += address_pending_count
+        return jsonify({
+            "total_sat": total_sat,
+            "confirmed_sat": confirmed_sat,
+            "pending_sat": pending_sat,
+            "utxo_count": total_utxos,
+            "confirmed_utxo_count": confirmed_utxos,
+            "pending_utxo_count": pending_utxos,
+            "balances": balances,
+            "utxos": all_utxos,
+        })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:

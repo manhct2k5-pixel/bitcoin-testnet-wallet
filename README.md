@@ -37,6 +37,8 @@ Nút **Gửi về ví này để tạo thêm UTXO** tự điền địa chỉ P2
 giao diện nhận biết output người nhận cũng thuộc cùng ví và tính đúng số dư sau giao dịch.
 Nút **Xem trước UTXO** mô phỏng cùng chiến lược coin selection ngay trên trình duyệt
 để trình bày input, output, change và phí mà chưa ký hoặc broadcast giao dịch.
+Kết quả kiểm tra số dư tách riêng confirmed/pending, hiển thị số UTXO của từng
+loại địa chỉ và cung cấp TXID/vout cùng liên kết Testnet explorer cho mỗi UTXO.
 
 Nếu phần dư nhỏ hơn ngưỡng dust 294 sat của change P2WPKH, chương trình không
 tạo change output và ghi rõ phần đó được cộng vào phí thực tế.

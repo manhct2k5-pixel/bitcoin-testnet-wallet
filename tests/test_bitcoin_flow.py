@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from app import app as flask_app
 from encoding_utils import base58check_encode, bech32_encode
 from keys import (
     decode_wif, derive_addresses, privkey_to_wif,
@@ -47,6 +48,35 @@ class EncodingAndKeyTests(unittest.TestCase):
         mainnet_legacy = base58check_encode(bytes(20), b"\x00")
         with self.assertRaisesRegex(ValueError, "Testnet"):
             address_to_scriptpubkey(mainnet_legacy)
+
+
+class BalanceApiTests(unittest.TestCase):
+    def test_all_balances_separate_confirmed_and_pending_utxos(self):
+        addresses = list(derive_addresses(1)["addresses"].values())
+
+        def fake_utxos(address):
+            if address == addresses[0]:
+                return [{"txid": "aa" * 32, "vout": 0, "value": 8_000,
+                         "status": {"confirmed": True}}]
+            if address == addresses[2]:
+                return [{"txid": "bb" * 32, "vout": 1, "value": 2_000,
+                         "status": {"confirmed": False}}]
+            return []
+
+        with patch("app.network.get_utxos", side_effect=fake_utxos):
+            response = flask_app.test_client().post(
+                "/api/balance/all", json={"wif": privkey_to_wif(1)}
+            )
+
+        data = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["total_sat"], 10_000)
+        self.assertEqual(data["confirmed_sat"], 8_000)
+        self.assertEqual(data["pending_sat"], 2_000)
+        self.assertEqual(data["confirmed_utxo_count"], 1)
+        self.assertEqual(data["pending_utxo_count"], 1)
+        self.assertEqual(len(data["utxos"]), 2)
+        self.assertTrue(all(item["explorer_url"].startswith("https://") for item in data["utxos"]))
 
 
 class SignatureVectorTests(unittest.TestCase):

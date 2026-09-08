@@ -592,6 +592,22 @@
   .balance-panel{ border-radius:10px; border-color:#2A3D54; }
   .balance-summary{ padding:17px; }
   .balance-grid{ padding:5px 13px; }
+  .balance-status-grid{ display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--border); }
+  .balance-status-item{ padding:11px 16px; }
+  .balance-status-item + .balance-status-item{ border-left:1px solid var(--border); }
+  .balance-status-item span{ display:block; color:var(--muted); font-size:10px; margin-bottom:3px; }
+  .balance-status-item strong{ font-family:'IBM Plex Mono',monospace; font-size:12px; }
+  .balance-status-item.confirmed strong{ color:var(--success); }
+  .balance-status-item.pending strong{ color:#FFC15B; }
+  .balance-kind-wrap, .balance-value-wrap{ min-width:0; }
+  .balance-address{ margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#657A91; font-family:'IBM Plex Mono',monospace; font-size:9px; }
+  .balance-value-wrap{ text-align:right; }
+  .balance-value-note{ margin-top:2px; color:#71859B; font-size:9px; }
+  .balance-footer{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 16px; border-top:1px solid var(--border); color:#71859B; font-size:9.5px;
+  }
+  .balance-footer button{ min-height:29px; padding:4px 9px; font-size:10px; }
   .history-list{ max-height:360px; }
   .history-item{ border-color:#263A51; background:#111F32; }
   .activity-grid{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
@@ -691,6 +707,8 @@
   .utxo-chip-details{ margin-top:7px; color:#8194A9; font-size:9.5px; }
   .utxo-chip-details summary{ cursor:pointer; color:#9EB0C4; }
   .utxo-chip-details div{ margin-top:5px; word-break:break-all; white-space:pre-line; font-family:'IBM Plex Mono',monospace; line-height:1.5; }
+  .utxo-chip-details a{ display:inline-block; margin-top:6px; color:#8EBCFF; text-decoration:none; }
+  .utxo-chip-details a:hover{ text-decoration:underline; }
   .tx-bridge{
     display:flex; flex-direction:column; justify-content:center; align-items:center;
     padding:14px 11px; border-radius:11px; border:1px dashed rgba(245,158,11,.35);
@@ -834,7 +852,7 @@
 
         <div class="addr-list" id="addr-list"></div>
 
-        <button class="btn-secondary btn-block" id="btn-balance">Kiểm tra UTXO của 5 địa chỉ</button>
+        <button class="btn-secondary btn-block" id="btn-balance">Kiểm tra số dư &amp; danh sách UTXO</button>
         <div id="balance-box"></div>
         <p class="hint">Chưa có testnet coin? Dùng <a href="https://mempool.space/testnet/faucet" target="_blank" rel="noopener">Testnet Faucet</a> và gửi vào địa chỉ P2WPKH (tb1q).</p>
       </div>
@@ -1043,6 +1061,14 @@ function createUtxoChip(utxo, state='available', label='UTXO khả dụng'){
   const detailText = document.createElement('div');
   detailText.textContent = `Outpoint: ${hasTxid ? `${utxo.txid}:${utxo.vout}` : `chưa có:${utxo.vout}`}\nAddress: ${utxo.address || '—'}\nValue: ${utxo.value} sat`;
   details.append(summary, detailText);
+  if (hasTxid){
+    const explorer = document.createElement('a');
+    explorer.href = utxo.explorer_url || `https://mempool.space/testnet/tx/${utxo.txid}`;
+    explorer.target = '_blank';
+    explorer.rel = 'noopener';
+    explorer.textContent = 'Mở giao dịch trên Mempool ↗';
+    details.appendChild(explorer);
+  }
 
   chip.append(top, outpoint, meta, details);
   return chip;
@@ -1429,22 +1455,56 @@ $('btn-balance').onclick = async () => {
     panel.className = 'balance-panel';
     const summary = document.createElement('div');
     summary.className = 'balance-summary';
-    summary.innerHTML = `<div><div class="eyebrow">TỔNG SỐ DƯ KHẢ DỤNG</div><span class="amt">${data.total_sat.toLocaleString('vi-VN')}</span> <span class="unit">sat · ${(data.total_sat/1e8).toFixed(8)} BTC</span></div><div class="utxos">${data.utxo_count} UTXO</div>`;
+    summary.innerHTML = `<div><div class="eyebrow">TỔNG SỐ DƯ TÀI KHOẢN</div><span class="amt">${data.total_sat.toLocaleString('vi-VN')}</span> <span class="unit">sat · ${(data.total_sat/1e8).toFixed(8)} BTC</span></div><div class="utxos">${data.utxo_count} UTXO</div>`;
+
+    const statuses = document.createElement('div');
+    statuses.className = 'balance-status-grid';
+    statuses.innerHTML = `
+      <div class="balance-status-item confirmed"><span>ĐÃ XÁC NHẬN · ${data.confirmed_utxo_count} UTXO</span><strong>${formatSat(data.confirmed_sat)}</strong></div>
+      <div class="balance-status-item pending"><span>ĐANG CHỜ · ${data.pending_utxo_count} UTXO</span><strong>${formatSat(data.pending_sat)}</strong></div>`;
+
     const grid = document.createElement('div');
     grid.className = 'balance-grid';
     data.balances.forEach(balance => {
       const row = document.createElement('div');
       row.className = 'balance-row' + (balance.total_sat === 0 ? ' zero' : '');
-      const label = document.createElement('span');
-      label.className = 'balance-kind';
-      label.textContent = `${balance.address_type} · ${balance.utxo_count} UTXO`;
-      const value = document.createElement('span');
+      const label = document.createElement('div');
+      label.className = 'balance-kind-wrap';
+      const kind = document.createElement('div');
+      kind.className = 'balance-kind';
+      kind.textContent = `${balance.address_type} · ${balance.utxo_count} UTXO`;
+      const address = document.createElement('div');
+      address.className = 'balance-address';
+      address.textContent = balance.address;
+      address.title = balance.address;
+      label.append(kind, address);
+      const valueWrap = document.createElement('div');
+      valueWrap.className = 'balance-value-wrap';
+      const value = document.createElement('div');
       value.className = 'balance-value';
       value.textContent = formatSat(balance.total_sat);
-      row.append(label, value);
+      const valueNote = document.createElement('div');
+      valueNote.className = 'balance-value-note';
+      valueNote.textContent = balance.pending_sat
+        ? `${formatSat(balance.confirmed_sat)} xác nhận · ${formatSat(balance.pending_sat)} chờ`
+        : `${formatSat(balance.confirmed_sat)} đã xác nhận`;
+      valueWrap.append(value, valueNote);
+      row.append(label, valueWrap);
       grid.appendChild(row);
     });
-    panel.append(summary, grid);
+
+    const footer = document.createElement('div');
+    footer.className = 'balance-footer';
+    const updated = document.createElement('span');
+    updated.textContent = `Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+    const detailButton = document.createElement('button');
+    detailButton.type = 'button';
+    detailButton.className = 'btn-ghost';
+    detailButton.textContent = 'Xem từng UTXO ↓';
+    detailButton.addEventListener('click', () => $('utxo-section').scrollIntoView({behavior:'smooth'}));
+    footer.append(updated, detailButton);
+
+    panel.append(summary, statuses, grid, footer);
     $('balance-box').replaceChildren(panel);
     renderUtxoSnapshot(data.utxos || []);
     logLine(`Tìm thấy ${data.utxo_count} UTXO, tổng ${data.total_sat} sat.`, 'result');
