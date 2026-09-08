@@ -209,7 +209,7 @@ def build_signed_transaction(privkey_int: int, to_address: str, amount_sat: int,
 
 
 def send_from_all_addresses(wif_privkey: str, to_address: str, amount_sat: int,
-                            fee_sat: int = 300, log=print):
+                            fee_sat: int = 300, log=print, details_out=None):
     """Execute the complete eight-step Testnet transaction flow."""
     validate_payment(amount_sat, fee_sat)
     privkey_int = wif_to_privkey(wif_privkey)
@@ -236,9 +236,10 @@ def send_from_all_addresses(wif_privkey: str, to_address: str, amount_sat: int,
     tx, details = build_unsigned_transaction(
         privkey_int, to_address, amount_sat, fee_sat, chosen
     )
+    unsigned_hex = tx.serialize_without_witness().hex()
     log(f"Step 4 - Constructed unsigned transaction with {len(tx.inputs)} input(s) "
         f"and {len(tx.outputs)} output(s); all scriptSig/witness fields are empty")
-    log(f"  unsigned_tx_hex = {tx.serialize_without_witness().hex()}")
+    log(f"  unsigned_tx_hex = {unsigned_hex}")
     if details["change_sat"]:
         log(f"  Change output: {details['change_sat']} sat to native SegWit")
     elif details["effective_fee_sat"] > fee_sat:
@@ -248,10 +249,42 @@ def send_from_all_addresses(wif_privkey: str, to_address: str, amount_sat: int,
     sign_transaction(privkey_int, tx, chosen, log=log)
     details["vsize"] = tx.vsize()
 
+    if details_out is not None:
+        selected_keys = {(item["txid"], item["vout"]) for item in chosen}
+        change_address = info["addresses"]["P2WPKH (native segwit)"]
+        outputs = [{
+            "role": "recipient",
+            "address": to_address,
+            "value": amount_sat,
+            "vout": 0,
+        }]
+        if details["change_sat"]:
+            outputs.append({
+                "role": "change",
+                "address": change_address,
+                "value": details["change_sat"],
+                "vout": 1,
+            })
+        details_out.update({
+            **details,
+            "amount_sat": amount_sat,
+            "input_count": len(chosen),
+            "output_count": len(outputs),
+            "unsigned_tx_hex": unsigned_hex,
+            "selected_utxos": [dict(item) for item in chosen],
+            "unselected_utxos": [
+                dict(item) for item in all_utxos
+                if (item["txid"], item["vout"]) not in selected_keys
+            ],
+            "outputs": outputs,
+        })
+
     raw_hex = tx.serialize().hex()
     log(f"Step 7 - Serialized signed transaction: {len(raw_hex) // 2} bytes, "
         f"{details['vsize']} vB, effective fee={details['effective_fee_sat']} sat")
     txid = network.broadcast_tx(raw_hex)
+    if details_out is not None:
+        details_out["txid"] = txid
     log(f"Step 8 - Broadcast to Bitcoin Testnet. txid = {txid}")
     return txid, raw_hex
 

@@ -30,6 +30,10 @@ phạm vi ví single-key này.
 7. Transaction được serialize, bao gồm `scriptSig` và witness tương ứng.
 8. `network.broadcast_tx()` gửi raw transaction hex lên Bitcoin Testnet.
 
+Giao diện có sơ đồ **UTXO trước và sau giao dịch**: UTXO được chọn được đánh dấu
+đã tiêu, các UTXO không được chọn được giữ nguyên, và hai output mới (người nhận
+và change) được hiển thị cùng phép tính `total input = amount + change + fee`.
+
 Nếu phần dư nhỏ hơn ngưỡng dust 294 sat của change P2WPKH, chương trình không
 tạo change output và ghi rõ phần đó được cộng vào phí thực tế.
 

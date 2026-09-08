@@ -67,10 +67,15 @@ def balance_all():
     try:
         private_key, _compressed = decode_wif(wif)
         balances = []
+        all_utxos = []
         total_sat = 0
         total_utxos = 0
         for kind, address in derive_addresses(private_key)["addresses"].items():
             utxos = network.get_utxos(address)
+            for utxo in utxos:
+                item = dict(utxo)
+                item.update(address_type=kind, address=address)
+                all_utxos.append(item)
             address_total = sum(utxo["value"] for utxo in utxos)
             balances.append({
                 "address_type": kind,
@@ -81,7 +86,7 @@ def balance_all():
             total_sat += address_total
             total_utxos += len(utxos)
         return jsonify({"total_sat": total_sat, "utxo_count": total_utxos,
-                        "balances": balances})
+                        "balances": balances, "utxos": all_utxos})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
@@ -108,15 +113,21 @@ def send():
     wif = data.get("wif", "").strip()
     to_address = data.get("to_address", "").strip()
     logs = []
+    transaction = {}
     try:
         amount_sat = data.get("amount_sat", 0)
         fee_sat = data.get("fee_sat", 300)
-        txid, raw_hex = send_from_all_addresses(wif, to_address, amount_sat, fee_sat, log=logs.append)
+        txid, raw_hex = send_from_all_addresses(
+            wif, to_address, amount_sat, fee_sat,
+            log=logs.append, details_out=transaction,
+        )
         return jsonify({"ok": True, "txid": txid, "raw_hex": raw_hex, "logs": logs,
+                         "transaction": transaction,
                          "explorer_url": f"https://mempool.space/testnet/tx/{txid}"})
     except Exception as e:
         logs.append(f"Error: {e}")
-        return jsonify({"ok": False, "error": str(e), "logs": logs}), 400
+        return jsonify({"ok": False, "error": str(e), "logs": logs,
+                        "transaction": transaction}), 400
 
 
 if __name__ == "__main__":

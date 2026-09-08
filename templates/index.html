@@ -629,6 +629,96 @@
     .addr-item{ flex-direction:column; }
     .addr-item button{ align-self:flex-end; }
   }
+
+  /* ---------- UTXO BEFORE / AFTER VISUALIZER ---------- */
+  .utxo-section{ margin-bottom:24px; }
+  .utxo-section-head{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:18px; padding-bottom:18px; border-bottom:1px solid rgba(145,162,183,.14);
+  }
+  .utxo-section-head h2{ font-size:16px; margin:0 0 5px; }
+  .utxo-section-head .sub{ margin:0; }
+  .demo-badge{
+    flex:0 0 auto; padding:6px 10px; border-radius:999px;
+    background:rgba(91,156,255,.1); border:1px solid rgba(91,156,255,.3);
+    color:#8EBCFF; font-family:'IBM Plex Mono',monospace; font-size:10.5px;
+  }
+  .utxo-empty{
+    padding:28px 16px 8px; text-align:center; color:var(--muted); font-size:12.5px;
+  }
+  .utxo-empty strong{ display:block; margin-bottom:5px; color:var(--text); font-size:14px; }
+  .utxo-board{ margin-top:18px; }
+  .utxo-stats{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:15px;
+  }
+  .utxo-stat{
+    padding:12px 14px; border-radius:9px; background:#101E30;
+    border:1px solid #25384E;
+  }
+  .utxo-stat span{ display:block; color:var(--muted); font-size:10.5px; margin-bottom:3px; }
+  .utxo-stat strong{ font-family:'IBM Plex Mono',monospace; font-size:13px; }
+  .utxo-flow-grid{
+    display:grid; grid-template-columns:minmax(0,1fr) 190px minmax(0,1fr);
+    gap:14px; align-items:stretch;
+  }
+  .utxo-stage{
+    min-width:0; padding:15px; border:1px solid #263A51;
+    border-radius:11px; background:#0B1624;
+  }
+  .utxo-stage-title{ display:flex; align-items:center; gap:8px; margin-bottom:3px; font-size:13px; font-weight:600; }
+  .utxo-stage-title .stage-num{
+    width:23px; height:23px; display:grid; place-items:center; border-radius:50%;
+    background:#1B2B40; color:#8EBCFF; font-family:'IBM Plex Mono',monospace; font-size:10px;
+  }
+  .utxo-stage-note{ margin:0 0 12px; color:var(--muted); font-size:10.5px; }
+  .utxo-list{ display:flex; flex-direction:column; gap:8px; }
+  .utxo-chip{
+    padding:10px 11px; border:1px solid rgba(91,156,255,.3);
+    border-radius:8px; background:rgba(91,156,255,.07);
+  }
+  .utxo-chip.spent{ border-color:rgba(255,102,112,.42); background:rgba(255,102,112,.07); }
+  .utxo-chip.change{ border-color:rgba(49,201,120,.42); background:rgba(49,201,120,.08); }
+  .utxo-chip.recipient{ border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.08); }
+  .utxo-chip.kept{ opacity:.68; }
+  .utxo-chip-top{ display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .utxo-chip-label{ color:#91BFFF; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .utxo-chip.spent .utxo-chip-label{ color:#FF8D94; }
+  .utxo-chip.change .utxo-chip-label{ color:#75DDA4; }
+  .utxo-chip.recipient .utxo-chip-label{ color:#FFC15B; }
+  .utxo-chip-value{ color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:500; }
+  .utxo-chip-outpoint{ margin-top:6px; color:var(--muted); font-family:'IBM Plex Mono',monospace; font-size:9.5px; word-break:break-all; }
+  .utxo-chip-meta{ margin-top:4px; color:#71859B; font-size:9.5px; }
+  .tx-bridge{
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    padding:14px 11px; border-radius:11px; border:1px dashed rgba(245,158,11,.35);
+    background:rgba(245,158,11,.045); text-align:center;
+  }
+  .tx-bridge-icon{
+    width:42px; height:42px; display:grid; place-items:center; margin-bottom:10px;
+    border-radius:12px; background:var(--accent); color:#251700; font-size:21px; font-weight:700;
+  }
+  .tx-bridge strong{ font-size:12.5px; }
+  .tx-bridge p{ margin:5px 0 0; color:var(--muted); font-size:10.5px; line-height:1.5; }
+  .utxo-placeholder{
+    padding:18px 10px; border:1px dashed #2B3E54; border-radius:8px;
+    color:#6F8297; text-align:center; font-size:11px;
+  }
+  .utxo-equation{
+    margin-top:14px; padding:12px 14px; border-radius:9px;
+    background:#101E30; border:1px solid #263A51;
+    color:#B6C3D2; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+  }
+  .utxo-equation strong{ color:var(--accent); }
+  @media (max-width:820px){
+    .utxo-flow-grid{ grid-template-columns:1fr; }
+    .tx-bridge{ min-height:130px; }
+  }
+  @media (max-width:680px){
+    .utxo-section{ margin-bottom:18px; }
+    .utxo-section-head{ flex-direction:column; gap:10px; }
+    .utxo-stats{ grid-template-columns:1fr; }
+    .utxo-stage{ padding:13px; }
+  }
 </style>
 </head>
 <body>
@@ -766,6 +856,54 @@
     </section>
   </div>
 
+  <!-- UTXO BEFORE / AFTER -->
+  <section class="card utxo-section" id="utxo-section">
+    <div class="utxo-section-head">
+      <div>
+        <h2>UTXO trước và sau giao dịch</h2>
+        <p class="sub">Minh họa trực tiếp UTXO nào được dùng, tiền đi đâu và change quay về ví nào</p>
+      </div>
+      <span class="demo-badge">MINH HỌA CHO DEMO</span>
+    </div>
+
+    <div class="utxo-empty" id="utxo-empty">
+      <strong>Chưa có dữ liệu UTXO</strong>
+      Nhập ví rồi bấm “Kiểm tra UTXO của 5 địa chỉ” để bắt đầu.
+    </div>
+
+    <div class="utxo-board" id="utxo-board" style="display:none;">
+      <div class="utxo-stats">
+        <div class="utxo-stat"><span>SỐ DƯ TRƯỚC GIAO DỊCH</span><strong id="utxo-current-total">0 sat</strong></div>
+        <div class="utxo-stat"><span>SỐ UTXO HIỆN CÓ</span><strong id="utxo-current-count">0 UTXO</strong></div>
+        <div class="utxo-stat"><span>SỐ DƯ VÍ GỬI SAU GIAO DỊCH</span><strong id="utxo-after-total">Chưa gửi</strong></div>
+      </div>
+
+      <div class="utxo-flow-grid">
+        <div class="utxo-stage">
+          <div class="utxo-stage-title"><span class="stage-num">1</span>Trước giao dịch</div>
+          <p class="utxo-stage-note">Các output chưa tiêu đang thuộc quyền sở hữu của ví gửi.</p>
+          <div class="utxo-list" id="utxo-before-list"></div>
+        </div>
+
+        <div class="tx-bridge" id="utxo-transaction">
+          <div class="tx-bridge-icon">→</div>
+          <strong>Chưa tạo giao dịch</strong>
+          <p>UTXO được chọn sẽ trở thành input.</p>
+        </div>
+
+        <div class="utxo-stage">
+          <div class="utxo-stage-title"><span class="stage-num">2</span>Sau giao dịch</div>
+          <p class="utxo-stage-note">Input đã tiêu biến mất; transaction tạo ra các UTXO mới.</p>
+          <div class="utxo-list" id="utxo-after-list">
+            <div class="utxo-placeholder">Kết quả sẽ xuất hiện sau khi broadcast thành công.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="utxo-equation" id="utxo-equation">Tổng input = tiền gửi + change + phí</div>
+    </div>
+  </section>
+
   <div class="grid2 activity-grid">
   <!-- HISTORY CARD -->
   <section class="card">
@@ -795,9 +933,113 @@
 const $ = (id) => document.getElementById(id);
 let currentWallet = null;
 let amountUnit = 'sat';
+let currentUtxos = [];
 
 function formatSat(value){
   return Number(value).toLocaleString('vi-VN') + ' sat';
+}
+
+function shortText(value, head=9, tail=7){
+  const text = String(value || '');
+  return text.length > head + tail ? `${text.slice(0, head)}…${text.slice(-tail)}` : text;
+}
+
+function utxoKey(utxo){
+  return `${utxo.txid}:${utxo.vout}`;
+}
+
+function createUtxoChip(utxo, state='available', label='UTXO khả dụng'){
+  const chip = document.createElement('article');
+  chip.className = `utxo-chip ${state}`;
+
+  const top = document.createElement('div');
+  top.className = 'utxo-chip-top';
+  const labelNode = document.createElement('span');
+  labelNode.className = 'utxo-chip-label';
+  labelNode.textContent = label;
+  const value = document.createElement('span');
+  value.className = 'utxo-chip-value';
+  value.textContent = formatSat(utxo.value);
+  top.append(labelNode, value);
+
+  const outpoint = document.createElement('div');
+  outpoint.className = 'utxo-chip-outpoint';
+  outpoint.textContent = `${shortText(utxo.txid)}:${utxo.vout}`;
+  outpoint.title = `${utxo.txid}:${utxo.vout}`;
+
+  const meta = document.createElement('div');
+  meta.className = 'utxo-chip-meta';
+  if (utxo.role === 'recipient') meta.textContent = `Đến ${shortText(utxo.address, 12, 8)}`;
+  else if (utxo.role === 'change') meta.textContent = `Trả về ${shortText(utxo.address, 12, 8)}`;
+  else meta.textContent = `${utxo.address_type || 'UTXO'} · ${utxo.status?.confirmed ? 'đã xác nhận' : 'đang chờ xác nhận'}`;
+
+  chip.append(top, outpoint, meta);
+  return chip;
+}
+
+function renderUtxoSnapshot(utxos){
+  currentUtxos = Array.isArray(utxos) ? utxos : [];
+  $('utxo-empty').style.display = 'none';
+  $('utxo-board').style.display = 'block';
+  const total = currentUtxos.reduce((sum, item) => sum + Number(item.value), 0);
+  $('utxo-current-total').textContent = formatSat(total);
+  $('utxo-current-count').textContent = `${currentUtxos.length} UTXO`;
+  $('utxo-after-total').textContent = 'Chưa gửi';
+
+  const before = $('utxo-before-list');
+  before.innerHTML = '';
+  if (!currentUtxos.length){
+    before.innerHTML = '<div class="utxo-placeholder">Ví này hiện không có UTXO.</div>';
+  } else {
+    currentUtxos.forEach(item => before.appendChild(createUtxoChip(item)));
+  }
+  $('utxo-transaction').innerHTML = '<div class="tx-bridge-icon">→</div><strong>Chưa tạo giao dịch</strong><p>UTXO được chọn sẽ trở thành input.</p>';
+  $('utxo-after-list').innerHTML = '<div class="utxo-placeholder">Kết quả sẽ xuất hiện sau khi broadcast thành công.</div>';
+  $('utxo-equation').textContent = 'Tổng input = tiền gửi + change + phí';
+}
+
+function renderUtxoFlow(flow){
+  if (!flow || !Array.isArray(flow.selected_utxos)) return;
+  if (!currentUtxos.length){
+    currentUtxos = [...flow.selected_utxos, ...(flow.unselected_utxos || [])];
+  }
+  $('utxo-empty').style.display = 'none';
+  $('utxo-board').style.display = 'block';
+  const beforeTotal = currentUtxos.reduce((sum, item) => sum + Number(item.value), 0);
+  $('utxo-current-total').textContent = formatSat(beforeTotal);
+  $('utxo-current-count').textContent = `${currentUtxos.length} UTXO`;
+  const selected = new Set(flow.selected_utxos.map(utxoKey));
+  const before = $('utxo-before-list');
+  before.innerHTML = '';
+  currentUtxos.forEach(item => {
+    const spent = selected.has(utxoKey(item));
+    before.appendChild(createUtxoChip(item, spent ? 'spent' : 'kept', spent ? 'ĐÃ CHỌN → ĐÃ TIÊU' : 'KHÔNG ĐƯỢC CHỌN'));
+  });
+
+  $('utxo-transaction').innerHTML = `
+    <div class="tx-bridge-icon">₿</div>
+    <strong>${flow.input_count} input → ${flow.output_count} output</strong>
+    <p>Gửi ${formatSat(flow.amount_sat)}<br>Phí ${formatSat(flow.effective_fee_sat)}<br>${flow.vsize} vB</p>`;
+
+  const after = $('utxo-after-list');
+  after.innerHTML = '';
+  (flow.unselected_utxos || []).forEach(item => {
+    after.appendChild(createUtxoChip(item, 'kept', 'UTXO GIỮ NGUYÊN'));
+  });
+  (flow.outputs || []).forEach(output => {
+    const item = {...output, txid: flow.txid};
+    const isChange = output.role === 'change';
+    after.appendChild(createUtxoChip(
+      item,
+      isChange ? 'change' : 'recipient',
+      isChange ? 'CHANGE → VÍ GỬI' : 'UTXO MỚI → NGƯỜI NHẬN'
+    ));
+  });
+
+  const unselectedTotal = (flow.unselected_utxos || []).reduce((sum, item) => sum + Number(item.value), 0);
+  $('utxo-after-total').textContent = formatSat(unselectedTotal + Number(flow.change_sat));
+  $('utxo-equation').innerHTML = `<strong>${formatSat(flow.total_in_sat)}</strong> = ${formatSat(flow.amount_sat)} gửi + ${formatSat(flow.change_sat)} change + ${formatSat(flow.effective_fee_sat)} phí`;
+  $('utxo-section').scrollIntoView?.({behavior:'smooth', block:'start'});
 }
 
 async function copyText(value, button){
@@ -913,6 +1155,9 @@ function renderWallet(info){
   $('send-wif').value = info.private_key_wif;
   $('wif-input').value = '';
   $('tx-result').classList.add('hidden');
+  currentUtxos = [];
+  $('utxo-empty').style.display = 'block';
+  $('utxo-board').style.display = 'none';
 
   const list = $('addr-list');
   list.innerHTML = '';
@@ -1029,6 +1274,7 @@ $('btn-balance').onclick = async () => {
     });
     panel.append(summary, grid);
     $('balance-box').replaceChildren(panel);
+    renderUtxoSnapshot(data.utxos || []);
     logLine(`Tìm thấy ${data.utxo_count} UTXO, tổng ${data.total_sat} sat.`, 'result');
   }catch(e){
     logLine('Lỗi: ' + e, 'err');
@@ -1048,6 +1294,7 @@ $('btn-max').onclick = async () => {
     });
     const data = await res.json();
     if (data.error){ $('send-status').textContent = data.error; $('send-status').className='status err'; return; }
+    renderUtxoSnapshot(data.utxos || []);
     const fee = Number($('send-fee').value);
     if (!Number.isInteger(fee) || fee < 0) throw new Error('Phí phải là số nguyên không âm.');
     const maxSat = Math.max(0, data.total_sat - fee);
@@ -1166,6 +1413,7 @@ $('btn-send').onclick = async () => {
       $('result-link').href = data.explorer_url;
       $('result-raw').textContent = data.raw_hex;
       $('tx-result').classList.remove('hidden');
+      renderUtxoFlow(data.transaction);
       logLine('Broadcast thành công. TXID: ' + data.txid, 'result');
       highlightStep(8);
       $('btn-history').click();

@@ -251,7 +251,7 @@ class TransactionFlowTests(unittest.TestCase):
     def test_full_flow_scans_every_address_and_broadcasts_raw_hex(self):
         own = derive_addresses(self.secret)["addresses"]
         funded_address = own["P2TR (taproot key-path)"]
-        queried, broadcast, logs = [], [], []
+        queried, broadcast, logs, flow = [], [], [], {}
 
         def fake_utxos(address):
             queried.append(address)
@@ -262,7 +262,8 @@ class TransactionFlowTests(unittest.TestCase):
         with patch("network.get_utxos", side_effect=fake_utxos), \
              patch("network.broadcast_tx", side_effect=lambda raw: broadcast.append(raw) or "mock-txid"):
             txid, raw_hex = send_from_all_addresses(
-                privkey_to_wif(self.secret), self.destination, 10_000, 500, log=logs.append
+                privkey_to_wif(self.secret), self.destination, 10_000, 500,
+                log=logs.append, details_out=flow,
             )
         self.assertEqual(set(queried), set(own.values()))
         self.assertEqual(txid, "mock-txid")
@@ -277,6 +278,12 @@ class TransactionFlowTests(unittest.TestCase):
         self.assertLess(step6, step7)
         self.assertIn("scriptSig/witness fields are empty", logs[step4])
         self.assertTrue(any(line.strip().startswith("unsigned_tx_hex") for line in logs))
+        self.assertEqual(flow["txid"], "mock-txid")
+        self.assertEqual(flow["total_in_sat"], 20_000)
+        self.assertEqual(flow["amount_sat"], 10_000)
+        self.assertEqual(flow["change_sat"], 9_500)
+        self.assertEqual(len(flow["selected_utxos"]), 1)
+        self.assertEqual([item["role"] for item in flow["outputs"]], ["recipient", "change"])
 
 
 if __name__ == "__main__":
