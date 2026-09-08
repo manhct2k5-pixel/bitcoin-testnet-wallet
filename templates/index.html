@@ -1012,6 +1012,7 @@ const $ = (id) => document.getElementById(id);
 let currentWallet = null;
 let amountUnit = 'sat';
 let currentUtxos = [];
+let currentUtxoWif = '';
 
 function formatSat(value){
   return Number(value).toLocaleString('vi-VN') + ' sat';
@@ -1074,8 +1075,9 @@ function createUtxoChip(utxo, state='available', label='UTXO khả dụng'){
   return chip;
 }
 
-function renderUtxoSnapshot(utxos){
+function renderUtxoSnapshot(utxos, wif=''){
   currentUtxos = Array.isArray(utxos) ? utxos : [];
+  currentUtxoWif = wif;
   $('utxo-empty').style.display = 'none';
   $('utxo-board').style.display = 'block';
   const total = currentUtxos.reduce((sum, item) => sum + Number(item.value), 0);
@@ -1165,16 +1167,12 @@ function renderUtxoFlow(flow){
   $('utxo-section').scrollIntoView?.({behavior:'smooth', block:'start'});
 }
 
-function previewTransaction(){
+async function previewTransaction(){
   const status = $('send-status');
   const amount = amountToSat();
   const fee = Number($('send-fee').value);
   const destination = $('send-to').value.trim();
-  if (!currentUtxos.length){
-    status.textContent = 'Hãy bấm “Kiểm tra UTXO của 5 địa chỉ” trước.';
-    status.className = 'status err';
-    return;
-  }
+  const wif = $('send-wif').value.trim();
   if (!destination){
     status.textContent = 'Hãy nhập địa chỉ nhận trước khi xem trước giao dịch.';
     status.className = 'status err';
@@ -1184,6 +1182,41 @@ function previewTransaction(){
     status.textContent = 'Số tiền và phí phải là số nguyên dương.';
     status.className = 'status err';
     return;
+  }
+
+  if (!currentUtxos.length || currentUtxoWif !== wif){
+    if (!wif){
+      status.textContent = 'Hãy tạo hoặc nhập ví trước để tải UTXO.';
+      status.className = 'status err';
+      return;
+    }
+    const button = $('btn-preview');
+    const oldText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Đang tải UTXO…';
+    status.textContent = 'Đang kiểm tra số dư và UTXO của ví…';
+    status.className = 'status';
+    try{
+      const response = await fetch('/api/balance/all', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({wif})
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      renderUtxoSnapshot(data.utxos || [], wif);
+    }catch(error){
+      status.textContent = 'Không thể tải UTXO: ' + error.message;
+      status.className = 'status err';
+      return;
+    }finally{
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+    if (!currentUtxos.length){
+      status.textContent = 'Ví này hiện chưa có UTXO để tạo giao dịch.';
+      status.className = 'status err';
+      return;
+    }
   }
 
   const sorted = [...currentUtxos].sort((a, b) => Number(b.value) - Number(a.value));
@@ -1354,6 +1387,7 @@ function renderWallet(info){
   $('wif-input').value = '';
   $('tx-result').classList.add('hidden');
   currentUtxos = [];
+  currentUtxoWif = '';
   $('utxo-empty').style.display = 'block';
   $('utxo-board').style.display = 'none';
 
@@ -1506,7 +1540,7 @@ $('btn-balance').onclick = async () => {
 
     panel.append(summary, statuses, grid, footer);
     $('balance-box').replaceChildren(panel);
-    renderUtxoSnapshot(data.utxos || []);
+    renderUtxoSnapshot(data.utxos || [], currentWallet.private_key_wif);
     logLine(`Tìm thấy ${data.utxo_count} UTXO, tổng ${data.total_sat} sat.`, 'result');
   }catch(e){
     logLine('Lỗi: ' + e, 'err');
@@ -1526,7 +1560,7 @@ $('btn-max').onclick = async () => {
     });
     const data = await res.json();
     if (data.error){ $('send-status').textContent = data.error; $('send-status').className='status err'; return; }
-    renderUtxoSnapshot(data.utxos || []);
+    renderUtxoSnapshot(data.utxos || [], currentWallet.private_key_wif);
     const fee = Number($('send-fee').value);
     if (!Number.isInteger(fee) || fee <= 0) throw new Error('Phí phải là số nguyên dương.');
     const maxSat = Math.max(0, data.total_sat - fee);
@@ -1646,6 +1680,7 @@ $('btn-send').onclick = async () => {
       $('result-raw').textContent = data.raw_hex;
       $('tx-result').classList.remove('hidden');
       renderUtxoFlow(data.transaction);
+      currentUtxoWif = '';
       logLine('Broadcast thành công. TXID: ' + data.txid, 'result');
       highlightStep(8);
       $('btn-history').click();
