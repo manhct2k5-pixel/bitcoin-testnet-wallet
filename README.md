@@ -35,6 +35,8 @@ Giao diện có sơ đồ **UTXO trước và sau giao dịch**: UTXO được c
 và change) được hiển thị cùng phép tính `total input = amount + change + fee`.
 Nút **Gửi về ví này để tạo thêm UTXO** tự điền địa chỉ P2WPKH của người gửi;
 giao diện nhận biết output người nhận cũng thuộc cùng ví và tính đúng số dư sau giao dịch.
+Nút **Xem trước UTXO** mô phỏng cùng chiến lược coin selection ngay trên trình duyệt
+để trình bày input, output, change và phí mà chưa ký hoặc broadcast giao dịch.
 
 Nếu phần dư nhỏ hơn ngưỡng dust 294 sat của change P2WPKH, chương trình không
 tạo change output và ghi rõ phần đó được cộng vào phí thực tế.
